@@ -7,8 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from core.models import Shipment, OptimizationResult
-from core.generator import generate_synthetic_dataset, get_canonical_mumbai_rotterdam_shipment
+from core.models import Shipment, OptimizationResult, Route
+from core.generator import (
+    generate_synthetic_dataset,
+    get_canonical_mumbai_rotterdam_shipment,
+    generate_routes_for_user_input
+)
 from core.pipeline import RouteOptimizationEngine
 
 app = FastAPI(
@@ -37,6 +41,31 @@ class OptimizeRequest(BaseModel):
 
 class NaturalLanguageQueryRequest(BaseModel):
     query: str
+
+
+class GenerateRoutesRequest(BaseModel):
+    origin: str
+    destination: str
+    cargo_type: str = "standard"
+    deadline_days: float = 14.0
+    max_budget: float = 6000.0
+    requires_reefer: bool = False
+    hazardous: bool = False
+
+
+@app.post("/api/generate-routes", response_model=List[Route])
+def generate_custom_routes(req: GenerateRoutesRequest):
+    """Dynamically generates candidate multimodal routes for any user input corridor."""
+    routes = generate_routes_for_user_input(
+        origin=req.origin,
+        destination=req.destination,
+        cargo_type=req.cargo_type,
+        deadline_days=req.deadline_days,
+        max_budget=req.max_budget,
+        requires_reefer=req.requires_reefer,
+        hazardous=req.hazardous
+    )
+    return routes
 
 
 @app.get("/api/health")
@@ -118,31 +147,49 @@ def parse_natural_language_query(req: NaturalLanguageQueryRequest):
     budget_match = re.search(r'\$?\s*(\d{3,6})\s*(?:usd|\$|dollars)?', text)
     budget = float(budget_match.group(1)) if budget_match else 7000.0
 
-    # Route origin/destination matching
-    origin = "Mumbai, India"
-    dest = "Rotterdam, Netherlands"
-    if "mumbai" in text and "rotterdam" in text:
-        origin, dest = "Mumbai, India", "Rotterdam, Netherlands"
-    elif "shanghai" in text and ("los angeles" in text or "la" in text):
-        origin, dest = "Shanghai, China", "Los Angeles, USA"
-    elif "singapore" in text and "rotterdam" in text:
-        origin, dest = "Singapore", "Rotterdam, Netherlands"
+    # Route origin/destination extraction (e.g. "from Singapore to Rotterdam", "Mumbai to Hamburg")
+    corridor_match = re.search(r'(?:from\s+)?([a-zA-Z\s]+?)\s+(?:to|->|—)\s+([a-zA-Z\s]+?)(?:,|\.|\bwithin|\bwith|\bdeadline|\bbudget|$)', text)
+    if corridor_match:
+        orig_raw = corridor_match.group(1).strip().title()
+        dest_raw = corridor_match.group(2).strip().title()
+        # Clean up filler words
+        orig_raw = re.sub(r'^(urgent|perishable|economy|a|an|the|need)\s+', '', orig_raw, flags=re.IGNORECASE).strip()
+        dest_raw = re.sub(r'\s+(within|with|in|by|budget).*$', '', dest_raw, flags=re.IGNORECASE).strip()
+        origin = orig_raw or "Mumbai, India"
+        dest = dest_raw or "Rotterdam, Netherlands"
+    else:
+        origin = "Mumbai, India"
+        dest = "Rotterdam, Netherlands"
 
-    # Find matching shipment from dataset or fallback to canonical
-    matched_shipment = None
-    for s in DATASET:
-        if s.origin.lower().split(",")[0] in origin.lower() and s.destination.lower().split(",")[0] in dest.lower():
-            matched_shipment = s.model_copy(deep=True)
-            matched_shipment.cargo_type = cargo_type
-            matched_shipment.deadline_days = deadline
-            matched_shipment.max_budget = budget
-            break
+    requires_reefer = (cargo_type == "perishable" or "reefer" in text or "cold" in text)
+    hazardous = ("hazardous" in text or "hazard" in text or "chemical" in text)
 
-    if not matched_shipment:
-        matched_shipment = get_canonical_mumbai_rotterdam_shipment()
-        matched_shipment.cargo_type = cargo_type
-        matched_shipment.deadline_days = deadline
-        matched_shipment.max_budget = budget
+    # Dynamically generate realistic multimodal candidate routes for this custom corridor
+    custom_routes = generate_routes_for_user_input(
+        origin=origin,
+        destination=dest,
+        cargo_type=cargo_type,
+        deadline_days=deadline,
+        max_budget=budget,
+        requires_reefer=requires_reefer,
+        hazardous=hazardous
+    )
+
+    custom_shipment = Shipment(
+        shipment_id="CUSTOM-SHP",
+        title=f"{cargo_type.capitalize()} Freight ({origin} -> {dest})",
+        origin=origin,
+        destination=dest,
+        cargo_type=cargo_type,
+        weight_kg=1500.0,
+        deadline_days=deadline,
+        max_budget=budget,
+        delay_penalty_cost=2000.0 if cargo_type == "standard" else 3000.0,
+        delay_penalty_per_day=500.0,
+        requires_reefer=requires_reefer,
+        hazardous=hazardous,
+        routes=custom_routes
+    )
 
     return {
         "parsed_entities": {
@@ -152,7 +199,7 @@ def parse_natural_language_query(req: NaturalLanguageQueryRequest):
             "deadline_days": deadline,
             "max_budget": budget
         },
-        "shipment": matched_shipment
+        "shipment": custom_shipment
     }
 
 

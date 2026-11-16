@@ -360,3 +360,193 @@ def generate_synthetic_dataset(num_shipments: int = 30, seed: int = 101) -> List
         shipments.append(shp)
 
     return shipments
+
+
+def generate_routes_for_user_input(
+    origin: str,
+    destination: str,
+    cargo_type: str = "standard",
+    deadline_days: float = 14.0,
+    max_budget: float = 6000.0,
+    requires_reefer: bool = False,
+    hazardous: bool = False
+) -> List[Route]:
+    """
+    Generates realistic multimodal candidate routes for any custom user input corridor.
+    """
+    orig_city = origin.split(",")[0].strip()
+    dest_city = destination.split(",")[0].strip()
+
+    # Determine hub name based on common geography or intermediate transit
+    hub_air = f"{orig_city} / Dubai SkyHub"
+    hub_sea = f"Salalah / Suez Hub"
+
+    # Route A: Multimodal Air-Sea Express (Fast, safe, higher cost)
+    route_a = Route(
+        route_id="Route A",
+        route_name=f"{orig_city} to {dest_city} Air-Sea Express",
+        carrier="SkyLogistics Global",
+        description=f"Fast priority multimodal connection via {hub_air}.",
+        legs=[
+            Leg(
+                leg_id="LEG-A1",
+                origin=f"{origin} Port/Terminal",
+                destination=hub_air,
+                mode="ocean" if not hazardous else "road",
+                distance_km=2400,
+                base_transit_days=round(deadline_days * 0.28, 1),
+                base_cost=round(max_budget * 0.35, 1),
+                delay_probability=0.08,
+                delay_mean_days=1.2,
+                delay_std_days=0.5,
+                risk_score=0.15,
+                hub_dwell_days=0.6,
+                reefer_supported=True,
+                co2_kg=450.0
+            ),
+            Leg(
+                leg_id="LEG-A2",
+                origin=hub_air,
+                destination=f"{destination} Inbound Hub",
+                mode="air" if not hazardous else "rail",
+                distance_km=4800,
+                base_transit_days=round(deadline_days * 0.35, 1),
+                base_cost=round(max_budget * 0.45, 1),
+                delay_probability=0.06,
+                delay_mean_days=1.0,
+                delay_std_days=0.4,
+                risk_score=0.10,
+                hub_dwell_days=0.0,
+                reefer_supported=True,
+                co2_kg=1200.0
+            )
+        ]
+    )
+
+    # Route B: Direct Maritime Liner (Standard cost, reliable)
+    route_b = Route(
+        route_id="Route B",
+        route_name=f"{orig_city} to {dest_city} Direct Maritime Liner",
+        carrier="Pacific-Atlantic Ocean Carrier",
+        description=f"Standard container liner with transshipment at {hub_sea}.",
+        legs=[
+            Leg(
+                leg_id="LEG-B1",
+                origin=f"{origin} Seaport",
+                destination=hub_sea,
+                mode="ocean",
+                distance_km=3600,
+                base_transit_days=round(deadline_days * 0.42, 1),
+                base_cost=round(max_budget * 0.30, 1),
+                delay_probability=0.18,
+                delay_mean_days=1.6,
+                delay_std_days=0.8,
+                risk_score=0.28,
+                hub_dwell_days=1.0,
+                reefer_supported=True,
+                co2_kg=780.0
+            ),
+            Leg(
+                leg_id="LEG-B2",
+                origin=hub_sea,
+                destination=f"{destination} Seaport",
+                mode="ocean",
+                distance_km=4200,
+                base_transit_days=round(deadline_days * 0.38, 1),
+                base_cost=round(max_budget * 0.32, 1),
+                delay_probability=0.16,
+                delay_mean_days=1.4,
+                delay_std_days=0.7,
+                risk_score=0.22,
+                hub_dwell_days=0.0,
+                reefer_supported=True,
+                co2_kg=850.0
+            )
+        ]
+    )
+
+    # Route C: Economy Slow Steaming (Cheapest base cost, high transit time and delay risk)
+    route_c = Route(
+        route_id="Route C",
+        route_name=f"{orig_city} to {dest_city} Slow Steaming Economy",
+        carrier="Global Bulk Lines",
+        description="Low cost route with extended intermediate port calls.",
+        legs=[
+            Leg(
+                leg_id="LEG-C1",
+                origin=f"{origin} Seaport",
+                destination="Regional Coastal Hub",
+                mode="ocean",
+                distance_km=4800,
+                base_transit_days=round(deadline_days * 0.55, 1),
+                base_cost=round(max_budget * 0.22, 1),
+                delay_probability=0.35,
+                delay_mean_days=2.5,
+                delay_std_days=1.2,
+                risk_score=0.45,
+                hub_dwell_days=1.8,
+                reefer_supported=not requires_reefer,  # may fail reefer rule if requested
+                co2_kg=920.0
+            ),
+            Leg(
+                leg_id="LEG-C2",
+                origin="Regional Coastal Hub",
+                destination=f"{destination} Seaport",
+                mode="ocean",
+                distance_km=5200,
+                base_transit_days=round(deadline_days * 0.50, 1),
+                base_cost=round(max_budget * 0.24, 1),
+                delay_probability=0.30,
+                delay_mean_days=2.2,
+                delay_std_days=1.1,
+                risk_score=0.38,
+                hub_dwell_days=0.0,
+                reefer_supported=True,
+                co2_kg=990.0
+            )
+        ]
+    )
+
+    # Route D: Secondary Feeder Route (Dominated by Route B: higher cost and higher delay)
+    route_d = Route(
+        route_id="Route D",
+        route_name=f"{orig_city} to {dest_city} Secondary Feeder",
+        carrier="Regional Feeder Lines",
+        description="Older container feeder routing with intermediate double handling.",
+        legs=[
+            Leg(
+                leg_id="LEG-D1",
+                origin=f"{origin} Seaport",
+                destination=hub_sea,
+                mode="ocean",
+                distance_km=3700,
+                base_transit_days=round(deadline_days * 0.46, 1),
+                base_cost=round(max_budget * 0.35, 1),
+                delay_probability=0.22,
+                delay_mean_days=1.8,
+                delay_std_days=0.9,
+                risk_score=0.36,
+                hub_dwell_days=1.2,
+                reefer_supported=True,
+                co2_kg=820.0
+            ),
+            Leg(
+                leg_id="LEG-D2",
+                origin=hub_sea,
+                destination=f"{destination} Seaport",
+                mode="ocean",
+                distance_km=4300,
+                base_transit_days=round(deadline_days * 0.42, 1),
+                base_cost=round(max_budget * 0.36, 1),
+                delay_probability=0.24,
+                delay_mean_days=1.9,
+                delay_std_days=0.9,
+                risk_score=0.34,
+                hub_dwell_days=0.0,
+                reefer_supported=True,
+                co2_kg=890.0
+            )
+        ]
+    )
+
+    return [route_a, route_b, route_c, route_d]

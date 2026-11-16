@@ -24,31 +24,49 @@ import {
   Award,
   Activity,
   Zap,
-  Gauge,
-  ExternalLink,
   Search,
   Filter,
   Check,
-  Calendar,
+  Plus,
+  Trash2,
+  Edit3,
   ThermometerSnowflake,
   ShieldCheck,
-  Percent
+  Package,
+  MapPin,
+  Settings,
+  HelpCircle
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('optimizer'); // 'optimizer' | 'benchmark' | 'nlp' | 'architecture'
+  const [activeTab, setActiveTab] = useState('input'); // 'input' | 'corridors' | 'benchmark' | 'nlp' | 'architecture'
+  
+  // Custom user input shipment state
+  const [customOrigin, setCustomOrigin] = useState('Mumbai, India');
+  const [customDestination, setCustomDestination] = useState('Rotterdam, Netherlands');
+  const [customCargoType, setCustomCargoType] = useState('urgent');
+  const [customDeadline, setCustomDeadline] = useState(14.0);
+  const [customBudget, setCustomBudget] = useState(6000.0);
+  const [customPenaltyCost, setCustomPenaltyCost] = useState(2500.0);
+  const [customPenaltyPerDay, setCustomPenaltyPerDay] = useState(600.0);
+  const [customReefer, setCustomReefer] = useState(false);
+  const [customHazardous, setCustomHazardous] = useState(false);
+  const [customRoutes, setCustomRoutes] = useState([]);
+  const [editingRouteIdx, setEditingRouteIdx] = useState(null);
+
+  // Global Corridors catalog state
   const [shipmentsCatalog, setShipmentsCatalog] = useState([]);
   const [selectedShipmentId, setSelectedShipmentId] = useState('SHP-001');
-  const [currentShipment, setCurrentShipment] = useState(null);
+
+  // Weights state
   const [weights, setWeights] = useState({ cost: 0.15, time: 0.55, risk: 0.30 });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [evaluationData, setEvaluationData] = useState(null);
-  const [serverOnline, setServerOnline] = useState(true);
 
   // NLP query state
   const [nlpQuery, setNlpQuery] = useState(
-    'We need an urgent shipment of precision electronics from Mumbai to Rotterdam within 14 days, budget is $6000.'
+    'Urgent shipment of electronics from Mumbai to Rotterdam within 14 days, budget is $6000.'
   );
   const [nlpParsing, setNlpParsing] = useState(false);
   const [nlpResult, setNlpResult] = useState(null);
@@ -60,6 +78,8 @@ export default function App() {
   useEffect(() => {
     fetchShipments();
     fetchEvaluation();
+    // Initialize default custom routes for Mumbai -> Rotterdam
+    generateRoutesForCustomInput('Mumbai, India', 'Rotterdam, Netherlands', 'urgent', 14.0, 6000.0, false, false);
   }, []);
 
   const fetchShipments = async () => {
@@ -68,14 +88,9 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setShipmentsCatalog(data);
-        setServerOnline(true);
-        if (data.length > 0) {
-          loadShipment(data[0].shipment_id);
-        }
       }
     } catch (e) {
       console.warn('API error', e);
-      setServerOnline(false);
     }
   };
 
@@ -88,25 +103,6 @@ export default function App() {
       }
     } catch (e) {
       console.warn('Failed to load evaluation', e);
-    }
-  };
-
-  const loadShipment = async (id) => {
-    setLoading(true);
-    setSelectedShipmentId(id);
-    try {
-      const res = await fetch(`/api/shipments/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentShipment(data);
-        const w = getDefaultsForCargo(data.cargo_type);
-        setWeights(w);
-        runOptimization(data, w);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -123,21 +119,113 @@ export default function App() {
     }
   };
 
-  const runOptimization = async (shipmentObj = currentShipment, customW = weights) => {
-    if (!shipmentObj) return;
+  const generateRoutesForCustomInput = async (orig, dest, cargo, deadline, budget, reefer, hazard) => {
     setLoading(true);
+    try {
+      const res = await fetch('/api/generate-routes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: orig,
+          destination: dest,
+          cargo_type: cargo,
+          deadline_days: parseFloat(deadline),
+          max_budget: parseFloat(budget),
+          requires_reefer: reefer,
+          hazardous: hazard
+        })
+      });
+      if (res.ok) {
+        const routes = await res.json();
+        setCustomRoutes(routes);
+        // Automatically optimize this shipment
+        executeOptimizationWithRoutes(orig, dest, cargo, deadline, budget, reefer, hazard, routes);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const executeOptimizationWithRoutes = async (
+    orig = customOrigin,
+    dest = customDestination,
+    cargo = customCargoType,
+    deadline = customDeadline,
+    budget = customBudget,
+    reefer = customReefer,
+    hazard = customHazardous,
+    routesList = customRoutes,
+    activeWeights = weights
+  ) => {
+    if (!routesList || routesList.length === 0) return;
+    setLoading(true);
+
+    const shipmentPayload = {
+      shipment_id: 'USER-INPUT',
+      title: `${cargo.toUpperCase()} Freight: ${orig} → ${dest}`,
+      origin: orig,
+      destination: dest,
+      cargo_type: cargo,
+      weight_kg: 2000.0,
+      deadline_days: parseFloat(deadline),
+      max_budget: parseFloat(budget),
+      delay_penalty_cost: parseFloat(customPenaltyCost),
+      delay_penalty_per_day: parseFloat(customPenaltyPerDay),
+      requires_reefer: reefer,
+      hazardous: hazard,
+      routes: routesList
+    };
+
     try {
       const res = await fetch('/api/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shipment: shipmentObj,
-          custom_weights: customW
+          shipment: shipmentPayload,
+          custom_weights: activeWeights
         })
       });
       if (res.ok) {
         const data = await res.json();
         setResult(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFromCatalog = async (id) => {
+    setLoading(true);
+    setSelectedShipmentId(id);
+    try {
+      const res = await fetch(`/api/shipments/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustomOrigin(data.origin);
+        setCustomDestination(data.destination);
+        setCustomCargoType(data.cargo_type);
+        setCustomDeadline(data.deadline_days);
+        setCustomBudget(data.max_budget);
+        setCustomReefer(data.requires_reefer);
+        setCustomHazardous(data.hazardous);
+        setCustomRoutes(data.routes);
+        const w = getDefaultsForCargo(data.cargo_type);
+        setWeights(w);
+        executeOptimizationWithRoutes(
+          data.origin,
+          data.destination,
+          data.cargo_type,
+          data.deadline_days,
+          data.max_budget,
+          data.requires_reefer,
+          data.hazardous,
+          data.routes,
+          w
+        );
       }
     } catch (e) {
       console.error(e);
@@ -159,11 +247,28 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setNlpResult(data);
-        setCurrentShipment(data.shipment);
-        setSelectedShipmentId(data.shipment.shipment_id);
-        const w = getDefaultsForCargo(data.shipment.cargo_type);
+        const s = data.shipment;
+        setCustomOrigin(s.origin);
+        setCustomDestination(s.destination);
+        setCustomCargoType(s.cargo_type);
+        setCustomDeadline(s.deadline_days);
+        setCustomBudget(s.max_budget);
+        setCustomReefer(s.requires_reefer);
+        setCustomHazardous(s.hazardous);
+        setCustomRoutes(s.routes);
+        const w = getDefaultsForCargo(s.cargo_type);
         setWeights(w);
-        runOptimization(data.shipment, w);
+        executeOptimizationWithRoutes(
+          s.origin,
+          s.destination,
+          s.cargo_type,
+          s.deadline_days,
+          s.max_budget,
+          s.requires_reefer,
+          s.hazardous,
+          s.routes,
+          w
+        );
       }
     } catch (err) {
       console.error(err);
@@ -199,7 +304,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Header */}
-      <header className="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-50 px-6 py-3.5">
+      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-50 px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/25 ring-1 ring-white/20">
@@ -208,30 +313,40 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                  Aiqon
+                  Aiqon Logistics
                 </span>
-                <span className="text-slate-400 font-semibold text-sm">Logistics Optimizer</span>
-                <div className="flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-mono font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  ONLINE
-                </div>
+                <span className="text-slate-400 font-semibold text-sm">Decision Engine</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold">
+                  v2.4
+                </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">Multi-Objective Decision Engine Under Stochastic Uncertainty</p>
+              <p className="text-xs text-slate-400 font-medium">Multi-Objective Route Optimization Under Uncertainty</p>
             </div>
           </div>
 
           {/* Navigation Tabs */}
           <nav className="flex bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 shadow-inner">
             <button
-              onClick={() => setActiveTab('optimizer')}
+              onClick={() => setActiveTab('input')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-                activeTab === 'optimizer'
+                activeTab === 'input'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
               }`}
             >
-              <Compass className="w-3.5 h-3.5" />
-              Decision Engine
+              <Edit3 className="w-3.5 h-3.5" />
+              Custom Shipment Input
+            </button>
+            <button
+              onClick={() => setActiveTab('corridors')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+                activeTab === 'corridors'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              Global Corridors
             </button>
             <button
               onClick={() => setActiveTab('benchmark')}
@@ -242,7 +357,7 @@ export default function App() {
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              30-Shipment Benchmark
+              Evaluation Benchmark
             </button>
             <button
               onClick={() => setActiveTab('nlp')}
@@ -264,7 +379,7 @@ export default function App() {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              Architecture Guide
+              Methodology Guide
             </button>
           </nav>
         </div>
@@ -272,226 +387,281 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* TAB 1: DECISION OPTIMIZER CONSOLE */}
-        {activeTab === 'optimizer' && (
+        {/* TAB 1: CUSTOM USER INPUT OPTIMIZER */}
+        {activeTab === 'input' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Shipment Configuration & Multi-Attribute Weights (4 Cols) */}
-            <div className="lg:col-span-4 space-y-5">
-              {/* Preset Selector */}
-              <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4.5 shadow-xl backdrop-blur-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Filter className="w-3.5 h-3.5 text-blue-400" /> Select Scenario
-                  </span>
-                  <span className="text-[11px] font-mono text-blue-400 font-semibold">30 Scenarios</span>
+            {/* Left Column: Shipment Parameters Form (5 Cols) */}
+            <div className="lg:col-span-5 space-y-5">
+              <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 shadow-xl backdrop-blur-md space-y-4">
+                <div className="border-b border-slate-800/80 pb-3">
+                  <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    <Edit3 className="w-4 h-4 text-blue-400" /> Shipment Parameters
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Specify origin, destination, constraints, and cargo rules</p>
                 </div>
 
-                <select
-                  value={selectedShipmentId}
-                  onChange={(e) => loadShipment(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition font-medium"
-                >
-                  {shipmentsCatalog.map((s) => (
-                    <option key={s.shipment_id} value={s.shipment_id}>
-                      [{s.cargo_type.toUpperCase()}] {s.title}
-                    </option>
-                  ))}
-                </select>
+                {/* Origin & Destination Inputs */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-blue-400" /> Origin Location (Port / City)
+                    </label>
+                    <input
+                      type="text"
+                      value={customOrigin}
+                      onChange={(e) => setCustomOrigin(e.target.value)}
+                      placeholder="e.g. Mumbai, India or Shanghai Port"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
+                    />
+                  </div>
 
-                {/* Quick Shortcuts */}
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => loadShipment('SHP-001')}
-                    className="text-[11px] bg-blue-500/10 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 px-2.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1"
-                  >
-                    ⭐ Assignment Benchmark (Mumbai → Rotterdam)
-                  </button>
-                  <button
-                    onClick={() => {
-                      const per = shipmentsCatalog.find((s) => s.cargo_type === 'perishable');
-                      if (per) loadShipment(per.shipment_id);
-                    }}
-                    className="text-[11px] bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1"
-                  >
-                    <ThermometerSnowflake className="w-3 h-3" /> Cold Chain Perishable
-                  </button>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Destination Location (Port / City)
+                    </label>
+                    <input
+                      type="text"
+                      value={customDestination}
+                      onChange={(e) => setCustomDestination(e.target.value)}
+                      placeholder="e.g. Rotterdam, Netherlands or Los Angeles"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Shipment Details Card */}
-              {currentShipment && (
-                <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
-                  <div className="flex items-start justify-between border-b border-slate-800/80 pb-3">
-                    <div>
-                      <span className="text-[11px] font-mono font-bold text-slate-500">{currentShipment.shipment_id}</span>
-                      <h3 className="font-extrabold text-sm text-white mt-0.5">{currentShipment.title}</h3>
-                    </div>
-                    <span
-                      className={`text-[11px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                        currentShipment.cargo_type === 'urgent'
-                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                          : currentShipment.cargo_type === 'perishable'
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                          : currentShipment.cargo_type === 'economy'
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                          : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                      }`}
-                    >
-                      {currentShipment.cargo_type}
-                    </span>
-                  </div>
-
-                  {/* Corridor Path */}
-                  <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs font-semibold">
-                    <span className="text-slate-300">{currentShipment.origin}</span>
-                    <ArrowRight className="w-4 h-4 text-blue-400 mx-2" />
-                    <span className="text-slate-300">{currentShipment.destination}</span>
-                  </div>
-
-                  {/* Operational Constraints Grid */}
-                  <div className="grid grid-cols-2 gap-2.5 text-xs">
-                    <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] flex items-center gap-1 mb-1 font-medium">
-                        <Clock className="w-3.5 h-3.5 text-cyan-400" /> Deadline SLA
-                      </span>
-                      <span className="text-base font-extrabold text-white">{currentShipment.deadline_days} days</span>
-                    </div>
-
-                    <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] flex items-center gap-1 mb-1 font-medium">
-                        <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Max Budget
-                      </span>
-                      <span className="text-base font-extrabold text-white">
-                        ${currentShipment.max_budget?.toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] flex items-center gap-1 mb-1 font-medium">
-                        <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Delay Penalty
-                      </span>
-                      <span className="text-sm font-bold text-slate-200">${currentShipment.delay_penalty_cost}</span>
-                    </div>
-
-                    <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-[11px] flex items-center gap-1 mb-1 font-medium">
-                        <ThermometerSnowflake className="w-3.5 h-3.5 text-cyan-400" /> Cold-Chain
-                      </span>
-                      <span
-                        className={`text-sm font-bold ${
-                          currentShipment.requires_reefer ? 'text-cyan-400' : 'text-slate-400'
+                {/* Cargo Type Selection */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1.5">
+                    Cargo Priority Type
+                  </label>
+                  <div className="grid grid-cols-4 gap-1.5 text-xs">
+                    {['urgent', 'standard', 'economy', 'perishable'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => {
+                          setCustomCargoType(type);
+                          if (type === 'perishable') setCustomReefer(true);
+                          setWeights(getDefaultsForCargo(type));
+                        }}
+                        className={`py-2 px-1 rounded-xl text-center font-bold uppercase text-[10px] tracking-wider transition border ${
+                          customCargoType === type
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900 hover:text-slate-200'
                         }`}
                       >
-                        {currentShipment.requires_reefer ? 'Mandatory' : 'Standard'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Multi-Attribute Utility Weight Sliders */}
-                  <div className="border-t border-slate-800/80 pt-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5 text-indigo-400" /> Priority Weight Trade-offs
-                      </span>
-                      <button
-                        onClick={() => setWeights(getDefaultsForCargo(currentShipment.cargo_type))}
-                        className="text-[11px] text-blue-400 hover:text-blue-300 transition font-medium"
-                      >
-                        Reset Defaults
+                        {type}
                       </button>
-                    </div>
+                    ))}
+                  </div>
+                </div>
 
-                    {/* Weight Sliders */}
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <div className="flex justify-between text-slate-300 mb-1">
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <Clock className="w-3 h-3 text-cyan-400" /> Transit Speed
-                          </span>
-                          <span className="font-mono font-bold text-cyan-400">{Math.round(weights.time * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.80"
-                          step="0.05"
-                          value={weights.time}
-                          onChange={(e) => {
-                            const t = parseFloat(e.target.value);
-                            const rem = 1.0 - t;
-                            setWeights({ time: t, cost: rem * 0.4, risk: rem * 0.6 });
-                          }}
-                          className="w-full accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-slate-300 mb-1">
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <ShieldAlert className="w-3 h-3 text-rose-400" /> Delay Risk & Reliability
-                          </span>
-                          <span className="font-mono font-bold text-rose-400">{Math.round(weights.risk * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.80"
-                          step="0.05"
-                          value={weights.risk}
-                          onChange={(e) => {
-                            const r = parseFloat(e.target.value);
-                            const rem = 1.0 - r;
-                            setWeights({ risk: r, time: rem * 0.6, cost: rem * 0.4 });
-                          }}
-                          className="w-full accent-rose-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-slate-300 mb-1">
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <DollarSign className="w-3 h-3 text-emerald-400" /> Freight Tariff (Cost)
-                          </span>
-                          <span className="font-mono font-bold text-emerald-400">{Math.round(weights.cost * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.80"
-                          step="0.05"
-                          value={weights.cost}
-                          onChange={(e) => {
-                            const c = parseFloat(e.target.value);
-                            const rem = 1.0 - c;
-                            setWeights({ cost: c, time: rem * 0.5, risk: rem * 0.5 });
-                          }}
-                          className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
-                        />
-                      </div>
-                    </div>
+                {/* Deadline & Budget Constraints */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400" /> Deadline SLA (Days)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="1"
+                      value={customDeadline}
+                      onChange={(e) => setCustomDeadline(parseFloat(e.target.value) || 1)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500 font-bold"
+                    />
                   </div>
 
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Max Budget ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="100"
+                      min="500"
+                      value={customBudget}
+                      onChange={(e) => setCustomBudget(parseFloat(e.target.value) || 500)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Delay Penalties */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">
+                      Base Delay Penalty ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="100"
+                      value={customPenaltyCost}
+                      onChange={(e) => setCustomPenaltyCost(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">
+                      Daily Delay Penalty ($/day)
+                    </label>
+                    <input
+                      type="number"
+                      step="50"
+                      value={customPenaltyPerDay}
+                      onChange={(e) => setCustomPenaltyPerDay(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Cargo Rule Toggles */}
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <label
+                    onClick={() => setCustomReefer(!customReefer)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition select-none ${
+                      customReefer
+                        ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 font-semibold'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <ThermometerSnowflake className={`w-4 h-4 ${customReefer ? 'text-cyan-400' : 'text-slate-500'}`} />
+                    <span>Cold Chain (Reefer)</span>
+                  </label>
+
+                  <label
+                    onClick={() => setCustomHazardous(!customHazardous)}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition select-none ${
+                      customHazardous
+                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 font-semibold'
+                        : 'bg-slate-950 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <ShieldAlert className={`w-4 h-4 ${customHazardous ? 'text-rose-400' : 'text-slate-500'}`} />
+                    <span>Hazardous Cargo</span>
+                  </label>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-2">
                   <button
-                    onClick={() => runOptimization()}
+                    onClick={() =>
+                      generateRoutesForCustomInput(
+                        customOrigin,
+                        customDestination,
+                        customCargoType,
+                        customDeadline,
+                        customBudget,
+                        customReefer,
+                        customHazardous
+                      )
+                    }
                     disabled={loading}
-                    className="w-full mt-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-[0.99]"
+                    className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition"
                   >
                     {loading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Zap className="w-4 h-4" />
+                      <RefreshCw className="w-4 h-4" />
                     )}
-                    Re-Optimize Route Decision
+                    Generate Candidate Routes for Corridor
+                  </button>
+
+                  <button
+                    onClick={() => executeOptimizationWithRoutes()}
+                    disabled={loading || customRoutes.length === 0}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 rounded-xl border border-slate-700 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    Run Multi-Objective Optimizer
                   </button>
                 </div>
-              )}
+              </div>
+
+              {/* Priority Weights Sliders */}
+              <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4.5 shadow-xl backdrop-blur-md space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" /> Objective Priority Weights
+                  </span>
+                  <button
+                    onClick={() => setWeights(getDefaultsForCargo(customCargoType))}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 font-medium"
+                  >
+                    Reset Defaults
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span className="text-slate-400">Transit Speed</span>
+                      <span className="font-mono font-bold text-cyan-400">{Math.round(weights.time * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.80"
+                      step="0.05"
+                      value={weights.time}
+                      onChange={(e) => {
+                        const t = parseFloat(e.target.value);
+                        const rem = 1.0 - t;
+                        setWeights({ time: t, cost: rem * 0.4, risk: rem * 0.6 });
+                      }}
+                      className="w-full accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span className="text-slate-400">Delay Risk & Reliability</span>
+                      <span className="font-mono font-bold text-rose-400">{Math.round(weights.risk * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.80"
+                      step="0.05"
+                      value={weights.risk}
+                      onChange={(e) => {
+                        const r = parseFloat(e.target.value);
+                        const rem = 1.0 - r;
+                        setWeights({ risk: r, time: rem * 0.6, cost: rem * 0.4 });
+                      }}
+                      className="w-full accent-rose-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-slate-300 mb-1">
+                      <span className="text-slate-400">Freight Cost</span>
+                      <span className="font-mono font-bold text-emerald-400">{Math.round(weights.cost * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.80"
+                      step="0.05"
+                      value={weights.cost}
+                      onChange={(e) => {
+                        const c = parseFloat(e.target.value);
+                        const rem = 1.0 - c;
+                        setWeights({ cost: c, time: rem * 0.5, risk: rem * 0.5 });
+                      }}
+                      className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Right Column: Execution Pipeline & Executive Decision Card (8 Cols) */}
-            <div className="lg:col-span-8 space-y-6">
+            {/* Right Column: Optimizer Output & 8-Step Pipeline (7 Cols) */}
+            <div className="lg:col-span-7 space-y-6">
               {result && (
                 <>
-                  {/* Executive Recommendation Hero Banner */}
+                  {/* Recommended Winner Banner */}
                   <div
                     className={`rounded-2xl p-6 border shadow-2xl relative overflow-hidden backdrop-blur-xl ${
                       result.is_close_call
@@ -507,7 +677,7 @@ export default function App() {
                           </span>
 
                           {result.is_close_call && (
-                            <span className="text-xs font-mono font-extrabold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm animate-pulse">
+                            <span className="text-xs font-mono font-extrabold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
                               <AlertTriangle className="w-4 h-4 text-amber-400" /> CLOSE CALL ({result.close_call_margin_pct}% utility margin)
                             </span>
                           )}
@@ -517,25 +687,25 @@ export default function App() {
                           {result.recommended_route?.route_id}: {result.recommended_route?.route_name}
                         </h2>
                         <p className="text-xs text-slate-400 font-medium">
-                          Operated by <span className="text-slate-200 font-semibold">{result.recommended_route?.carrier}</span>
+                          Carrier: <span className="text-slate-200 font-semibold">{result.recommended_route?.carrier}</span>
                         </p>
                       </div>
 
                       {/* KPI Badges */}
                       <div className="grid grid-cols-3 gap-2 shrink-0">
-                        <div className="bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-center shadow-md">
+                        <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl text-center shadow-md">
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">On-Time SLA</span>
                           <span className="text-xl font-black text-emerald-400 font-mono">
                             {result.recommended_route?.p_ontime}%
                           </span>
                         </div>
-                        <div className="bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-center shadow-md">
+                        <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl text-center shadow-md">
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">P90 Time</span>
                           <span className="text-xl font-black text-cyan-400 font-mono">
                             {result.recommended_route?.p90_time}d
                           </span>
                         </div>
-                        <div className="bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl text-center shadow-md">
+                        <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl text-center shadow-md">
                           <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Base Tariff</span>
                           <span className="text-xl font-black text-white font-mono">
                             ${result.recommended_route?.aggregated.total_cost.toLocaleString()}
@@ -544,7 +714,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Executive Explanation & Trade-off breakdown */}
+                    {/* Executive Explanation */}
                     <div className="mt-5 bg-slate-950/80 p-4.5 rounded-xl border border-slate-800/90 text-xs space-y-2.5">
                       <div className="text-slate-200 font-medium leading-relaxed flex items-start gap-2">
                         <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -569,22 +739,19 @@ export default function App() {
                     </div>
 
                     <div className="space-y-3.5">
-                      {/* Step 1 & 2: Load & Aggregation */}
+                      {/* Step 1 & 2 */}
                       <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800/90 text-xs space-y-2">
                         <div className="flex items-center justify-between font-semibold text-slate-300">
                           <span className="flex items-center gap-2 text-blue-400">
                             <span className="w-5 h-5 rounded-md bg-blue-500/20 text-blue-300 flex items-center justify-center text-[10px] font-mono font-bold">
                               1-2
                             </span>
-                            Route Ingestion & Multi-Leg Dynamics Aggregation
+                            Route Options & Compound Delay Aggregation
                           </span>
                           <span className="text-[11px] font-mono text-slate-500">
                             P(delay) = 1 - ∏(1 - pᵢ)
                           </span>
                         </div>
-                        <p className="text-slate-400 text-[11px] leading-relaxed">
-                          Ingested {result.all_evaluations?.length} candidate routes. Summed leg freight tariffs, transit durations, and transshipment hub dwell buffers.
-                        </p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                           {result.all_evaluations?.map((r) => (
                             <div key={r.route_id} className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
@@ -600,20 +767,16 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Step 3: Hard Constraints Filter */}
+                      {/* Step 3: Hard Constraints */}
                       <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800/90 text-xs space-y-2">
                         <div className="flex items-center justify-between font-semibold text-slate-300">
                           <span className="flex items-center gap-2 text-amber-400">
                             <span className="w-5 h-5 rounded-md bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-mono font-bold">
                               3
                             </span>
-                            Hard Constraint Filter (Deadline, Budget & Cargo Rules)
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            {result.all_evaluations?.filter((e) => e.elimination_stage === 'Hard Constraint').length} Eliminated
+                            Hard Constraint Filtering (Deadline, Budget & Cargo Rules)
                           </span>
                         </div>
-
                         <div className="space-y-2 pt-1">
                           {result.all_evaluations
                             ?.filter((e) => e.elimination_stage === 'Hard Constraint')
@@ -644,11 +807,7 @@ export default function App() {
                             </span>
                             Pareto Dominance Filter (Multi-Objective Pruning)
                           </span>
-                          <span className="text-[11px] font-mono text-slate-500">
-                            {result.all_evaluations?.filter((e) => e.elimination_stage === 'Pareto Filter').length} Dominated
-                          </span>
                         </div>
-
                         <div className="space-y-2 pt-1">
                           {result.all_evaluations
                             ?.filter((e) => e.elimination_stage === 'Pareto Filter')
@@ -670,7 +829,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Step 5 & 6: Weighted Utility, Monte Carlo & Jitter Stability */}
+                      {/* Step 5 & 6: Scoring & Uncertainty */}
                       <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800/90 text-xs space-y-3">
                         <div className="flex items-center justify-between font-semibold text-slate-300">
                           <span className="flex items-center gap-2 text-emerald-400">
@@ -681,7 +840,6 @@ export default function App() {
                           </span>
                         </div>
 
-                        {/* Surviving routes evaluation table */}
                         <div className="overflow-x-auto">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
@@ -732,7 +890,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Route Leg Inspector */}
+                  {/* Route Legs Details */}
                   <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
                     <h3 className="font-bold text-sm text-white flex items-center gap-2">
                       <Ship className="w-4 h-4 text-blue-400" /> Multimodal Legs Breakdown for Evaluated Routes
@@ -790,7 +948,65 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: OFFLINE BENCHMARK EVALUATION DASHBOARD */}
+        {/* TAB 2: GLOBAL CORRIDORS CATALOG */}
+        {activeTab === 'corridors' && (
+          <div className="space-y-6">
+            <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+              <div className="border-b border-slate-800/80 pb-4 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <Package className="w-5 h-5 text-blue-400" /> Global Shipping Corridors
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Select any pre-configured global trade lane to inspect or optimize</p>
+                </div>
+                <div className="text-xs text-slate-400 font-mono">
+                  {shipmentsCatalog.length} Active Corridors
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shipmentsCatalog.map((s) => (
+                  <div
+                    key={s.shipment_id}
+                    className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">{s.shipment_id}</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          {s.cargo_type}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-sm text-slate-200">{s.title}</h4>
+                      <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-2">
+                        <span>{s.origin.split(',')[0]}</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{s.destination.split(',')[0]}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                      <div className="font-mono text-slate-400 text-[11px]">
+                        Deadline: {s.deadline_days}d • ${s.max_budget?.toLocaleString()}
+                      </div>
+                      <button
+                        onClick={() => {
+                          loadFromCatalog(s.shipment_id);
+                          setActiveTab('input');
+                        }}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
+                      >
+                        Load Corridor
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: OFFLINE BENCHMARK EVALUATION DASHBOARD */}
         {activeTab === 'benchmark' && (
           <div className="space-y-6">
             <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
@@ -968,7 +1184,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: PLAIN-ENGLISH AGENT LAYER */}
+        {/* TAB 4: PLAIN-ENGLISH AGENT LAYER */}
         {activeTab === 'nlp' && (
           <div className="max-w-3xl mx-auto space-y-6">
             <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md space-y-4">
@@ -1059,7 +1275,7 @@ export default function App() {
                     <span className="font-bold block text-xs text-emerald-400">Agent Recommendation:</span>
                     <p className="text-slate-300 leading-relaxed text-xs">{result?.executive_summary}</p>
                     <button
-                      onClick={() => setActiveTab('optimizer')}
+                      onClick={() => setActiveTab('input')}
                       className="mt-2 text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-1"
                     >
                       Open in Decision Console <ChevronRight className="w-3.5 h-3.5" />
@@ -1071,7 +1287,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 4: ARCHITECTURE GUIDE */}
+        {/* TAB 5: ARCHITECTURE GUIDE */}
         {activeTab === 'architecture' && (
           <div className="max-w-4xl mx-auto space-y-6 text-xs text-slate-300">
             <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md space-y-5">
@@ -1132,7 +1348,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 px-6 py-4 text-center text-xs text-slate-500 font-medium">
-        Aiqon Logistics AI Internship Take-Home Assignment • Built with React 19, Tailwind CSS v4, FastAPI, Monte Carlo Simulation & Pareto Optimization.
+        Aiqon Logistics Decision Engine • Multi-Objective Optimization Under Uncertainty.
       </footer>
     </div>
   );
