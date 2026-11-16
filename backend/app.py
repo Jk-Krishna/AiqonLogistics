@@ -13,6 +13,7 @@ from core.generator import (
     get_canonical_mumbai_rotterdam_shipment,
     generate_routes_for_user_input
 )
+from core.locations import search_locations, GLOBAL_LOCATIONS
 from core.pipeline import RouteOptimizationEngine
 
 app = FastAPI(
@@ -51,6 +52,14 @@ class GenerateRoutesRequest(BaseModel):
     max_budget: float = 6000.0
     requires_reefer: bool = False
     hazardous: bool = False
+    allowed_modes: Optional[List[str]] = None
+    weight_kg: float = 1000.0
+
+
+@app.get("/api/locations")
+def list_locations(q: str = ""):
+    """Return autocomplete search results for global shipping hubs."""
+    return search_locations(q, limit=15)
 
 
 @app.post("/api/generate-routes", response_model=List[Route])
@@ -63,7 +72,9 @@ def generate_custom_routes(req: GenerateRoutesRequest):
         deadline_days=req.deadline_days,
         max_budget=req.max_budget,
         requires_reefer=req.requires_reefer,
-        hazardous=req.hazardous
+        hazardous=req.hazardous,
+        allowed_modes=req.allowed_modes,
+        weight_kg=req.weight_kg
     )
     return routes
 

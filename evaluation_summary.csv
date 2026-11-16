@@ -1,5 +1,5 @@
 Method,Avg Base Cost ($),Avg Realized Cost ($),Avg Delay Penalty Incurred ($),On-Time Delivery Rate (%),Avg P95 Transit Time (days),Cargo Constraint Violations,Budget Violations
-Aiqon (Proposed),4432.57,4557.03,124.46,95.96,14.03,0,0
+Aiqon (Proposed),4620.3,4740.75,120.45,96.1,13.37,0,0
 Baseline: Cheapest,2840.53,5423.84,2583.3,27.6,19.24,1,0
 Baseline: Fastest,4532.27,4550.76,18.49,99.58,12.8,1,0
 Baseline: Lowest-Risk,5138.39,5167.46,29.07,99.0,13.01,1,4

@@ -24,6 +24,29 @@ DEFAULT_WEIGHT_PROFILES: Dict[str, Dict[str, float]] = {
     },
 }
 
+PREFERENCE_PROFILES: Dict[str, Dict[str, float]] = {
+    "lowest_cost": {
+        "cost": 0.70,
+        "time": 0.15,
+        "risk": 0.15,
+    },
+    "fastest_delivery": {
+        "cost": 0.15,
+        "time": 0.70,
+        "risk": 0.15,
+    },
+    "lowest_risk": {
+        "cost": 0.20,
+        "time": 0.20,
+        "risk": 0.60,
+    },
+    "balanced": {
+        "cost": 0.35,
+        "time": 0.35,
+        "risk": 0.30,
+    },
+}
+
 
 def score_surviving_routes(
     evaluations: List[RouteEvaluation],
@@ -34,13 +57,22 @@ def score_surviving_routes(
     Step 5: Weighted scoring on the survivors.
     - calculate expected cost: base_cost + P(delay) * penalty
     - normalize metrics across surviving candidates
-    - apply multi-attribute weights according to shipment priority profile
+    - apply multi-attribute weights according to user recommendation preference or shipment priority profile
     """
-    # Active weights
-    weights = custom_weights or DEFAULT_WEIGHT_PROFILES.get(
-        shipment.cargo_type.lower(),
-        DEFAULT_WEIGHT_PROFILES["standard"]
-    )
+    # Active weights resolution:
+    # 1. User custom weight sliders take highest priority
+    # 2. Selected recommendation preference (Lowest Cost, Fastest, Lowest Risk, Balanced)
+    # 3. Default shipment cargo priority profile (Urgent, Standard, Economy, Perishable)
+    pref = getattr(shipment, "recommendation_preference", None)
+    if custom_weights:
+        weights = custom_weights
+    elif pref and pref.lower() in PREFERENCE_PROFILES:
+        weights = PREFERENCE_PROFILES[pref.lower()]
+    else:
+        weights = DEFAULT_WEIGHT_PROFILES.get(
+            shipment.cargo_type.lower(),
+            DEFAULT_WEIGHT_PROFILES["standard"]
+        )
     # Ensure normalized weights summing to 1.0
     w_sum = sum(weights.values())
     w_cost = weights.get("cost", 0.33) / w_sum

@@ -50,13 +50,18 @@ class Shipment(BaseModel):
     origin: str
     destination: str
     cargo_type: str  # "urgent", "standard", "economy", "perishable"
+    description: Optional[str] = None
     weight_kg: float = 1000.0
+    volume_cbm: Optional[float] = None
+    packages_count: Optional[int] = None
     deadline_days: float
     max_budget: float
     delay_penalty_cost: float = 2000.0  # penalty cost incurred if delayed beyond deadline
     delay_penalty_per_day: float = 500.0
     requires_reefer: bool = False
     hazardous: bool = False
+    allowed_modes: List[str] = ["ocean", "air", "rail", "road", "multimodal"]
+    recommendation_preference: Optional[str] = "balanced"  # "lowest_cost", "fastest_delivery", "lowest_risk", "balanced", "custom"
     routes: List[Route]
 
 
