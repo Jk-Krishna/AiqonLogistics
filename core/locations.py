@@ -114,3 +114,4 @@ def search_locations(keyword: str, limit: int = 10) -> List[Dict[str, any]]:
         if len(matches) >= limit:
             break
     return matches
+
