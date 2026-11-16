@@ -394,3 +394,4 @@ python -c "from core.generator import get_canonical_mumbai_rotterdam_shipment; f
 ## 9. Conclusion
 
 The Aiqon Logistics Decision Engine moves beyond naive cost minimization or single-objective heuristics. By unifying multi-leg probability compounding, hard constraint filtering, Pareto dominance pruning, cargo-specific utility scoring, and 2,500-trial Monte Carlo uncertainty modeling, it delivers an enterprise-ready decision support system for modern freight logistics.
+
