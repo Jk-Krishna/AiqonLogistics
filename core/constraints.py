@@ -70,3 +70,4 @@ def evaluate_hard_constraints(
         evaluations.append(eval)
 
     return evaluations
+

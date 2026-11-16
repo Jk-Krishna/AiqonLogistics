@@ -227,3 +227,4 @@ def generate_evaluation_charts(summary_df: pd.DataFrame, detailed_rows: List[Dic
 
 if __name__ == "__main__":
     run_offline_evaluation(num_shipments=30)
+

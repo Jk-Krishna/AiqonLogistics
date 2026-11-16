@@ -114,3 +114,4 @@ class OptimizationResult(BaseModel):
     tradeoff_rationale: str = ""
     eliminated_routes_breakdown: List[Dict[str, str]] = []
     competitor_comparison: List[Dict[str, Any]] = []
+

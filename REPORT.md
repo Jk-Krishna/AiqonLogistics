@@ -149,3 +149,4 @@ We benchmarked the Aiqon optimizer (`evaluate.py`) across all 30 shipments again
 ## 6. Conclusion
 
 Route selection in global logistics is fundamentally a decision-making problem under uncertainty. By integrating hard constraint satisfaction, Pareto dominance pruning, multi-attribute utility theory, and Monte Carlo stochastic modeling, the Aiqon Decision System provides freight operators with actionable, resilient, and transparent route recommendations.
+

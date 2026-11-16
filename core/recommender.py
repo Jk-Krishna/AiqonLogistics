@@ -38,3 +38,4 @@ def rank_and_identify_recommendation(
             is_close_call = True
 
     return top_route, runner_up, is_close_call, close_call_margin_pct
+

@@ -7,3 +7,4 @@ if __name__ == "__main__":
     print("  📑 API Docs available at:     http://localhost:8000/docs")
     print("=" * 65)
     uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=False)
+

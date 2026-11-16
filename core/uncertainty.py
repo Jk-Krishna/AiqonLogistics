@@ -106,3 +106,4 @@ def run_monte_carlo_and_sensitivity(
         e.decision_stability = round((wins_count[e.route_id] / jitter_trials) * 100.0, 1)
 
     return evaluations
+

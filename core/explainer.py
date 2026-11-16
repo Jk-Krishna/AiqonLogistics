@@ -136,3 +136,4 @@ def generate_explanation(
         "eliminated_routes_breakdown": breakdown,
         "competitor_comparison": comparisons
     }
+

@@ -51,3 +51,4 @@ def aggregate_route_legs(route: Route) -> AggregatedRoute:
         total_co2_kg=round(total_co2, 2),
         expected_delay_days=round(expected_delay_days, 2)
     )
+

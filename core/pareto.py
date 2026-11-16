@@ -75,3 +75,4 @@ def apply_pareto_filter(evaluations: List[RouteEvaluation]) -> List[RouteEvaluat
                 break  # eliminated, no need to check other competitors
 
     return evaluations
+
