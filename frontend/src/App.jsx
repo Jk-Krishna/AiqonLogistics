@@ -83,7 +83,7 @@ export default function App() {
   // Saved Shipments History (Local Persistence)
   const [savedShipments, setSavedShipments] = useState(() => {
     try {
-      const stored = localStorage.getItem('aiqon_saved_shipments');
+      const stored = localStorage.getItem('shipment_analysis_saved') || localStorage.getItem('aiqon_saved_shipments');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -105,7 +105,7 @@ export default function App() {
   // Save shipments to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('aiqon_saved_shipments', JSON.stringify(savedShipments));
+      localStorage.setItem('shipment_analysis_saved', JSON.stringify(savedShipments));
     } catch (e) {
       console.warn('Failed to save shipments to storage', e);
     }
@@ -416,13 +416,13 @@ export default function App() {
           {/* Brand Identity */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm tracking-tight">
-              A
+              SA
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-neutral-900">Aiqon</span>
+                <span className="font-extrabold text-base tracking-tight text-neutral-900">Shipment Analysis</span>
                 <span className="text-neutral-400 text-xs">/</span>
-                <span className="text-xs font-semibold text-neutral-600">Shipment Route Optimizer</span>
+                <span className="text-xs font-semibold text-neutral-600">Route Optimizer</span>
               </div>
               <p className="text-[11px] text-neutral-500">Commercial Multimodal Planning & Risk Analysis</p>
             </div>
@@ -1631,24 +1631,25 @@ export default function App() {
               <div className="border-b border-neutral-100 pb-3">
                 <h1 className="text-xl font-bold text-neutral-900">Offline Benchmark Evaluation</h1>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Empirical performance analysis comparing the Aiqon Multi-Objective Engine against 3 standard baselines across 30 global corridors.
+                  Empirical performance analysis comparing the Intelligent Multi-Objective Engine against 3 standard baselines across 30 global corridors.
                 </p>
               </div>
 
               {evaluationData && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                   {evaluationData.summary?.map((m) => {
-                    const isAiqon = m.Method.includes('Aiqon');
+                    const isOptimal = m.Method.includes('Aiqon') || m.Method.includes('Proposed') || m.Method.includes('Optimal');
+                    const displayName = m.Method.replace('Aiqon (Proposed)', 'Optimized Engine');
                     return (
                       <div
                         key={m.Method}
                         className={`p-4 rounded-xl border ${
-                          isAiqon ? 'border-neutral-900 bg-neutral-50 shadow-sm' : 'border-neutral-200 bg-white'
+                          isOptimal ? 'border-neutral-900 bg-neutral-50 shadow-sm' : 'border-neutral-200 bg-white'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-neutral-900">{m.Method}</span>
-                          {isAiqon && (
+                          <span className="text-xs font-bold text-neutral-900">{displayName}</span>
+                          {isOptimal && (
                             <span className="text-[9px] bg-neutral-900 text-white px-2 py-0.5 rounded font-bold font-mono">
                               OPTIMAL
                             </span>
@@ -1693,7 +1694,7 @@ export default function App() {
                   <strong>The "Cheapest Route" Trap:</strong> Choosing the lowest upfront tariff saves base freight on paper ($2,840 vs $4,432), but severe delays incur an average of <strong>$2,583 in delay penalties</strong>, collapsing on-time reliability to <strong>27.6%</strong> and driving net realized cost to $5,423.
                 </p>
                 <p className="leading-relaxed">
-                  <strong>Aiqon's Balance:</strong> The multi-attribute engine maintains <strong>95.96% on-time reliability</strong> with zero constraint breaches and minimizes total realized operational expenditure ($4,557).
+                  <strong>Optimized Engine Balance:</strong> The multi-attribute engine maintains <strong>95.96% on-time reliability</strong> with zero constraint breaches and minimizes total realized operational expenditure ($4,557).
                 </p>
               </div>
             </div>
@@ -1765,7 +1766,7 @@ export default function App() {
 
       {/* Understated Minimalist Footer */}
       <footer className="border-t border-neutral-200 bg-white px-6 py-4 text-center text-xs text-neutral-500">
-        Aiqon Logistics Decision Engine • Commercial-Grade Multimodal Route Optimization & Planning Platform.
+        Shipment Analysis • Multimodal Route Optimization & Planning Platform.
       </footer>
     </div>
   );

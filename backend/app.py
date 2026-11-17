@@ -17,7 +17,7 @@ from core.locations import search_locations, GLOBAL_LOCATIONS
 from core.pipeline import RouteOptimizationEngine
 
 app = FastAPI(
-    title="Aiqon Logistics Intelligent Routing Engine API",
+    title="Shipment Analysis Routing Engine API",
     version="1.0.0",
     description="Multi-objective route optimization with uncertainty modeling, Pareto filtering, and human explanations."
 )
@@ -81,7 +81,7 @@ def generate_custom_routes(req: GenerateRoutesRequest):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "service": "Aiqon Routing Engine", "shipment_count": len(DATASET)}
+    return {"status": "ok", "service": "Shipment Analysis Engine", "shipment_count": len(DATASET)}
 
 
 @app.get("/api/shipments")
