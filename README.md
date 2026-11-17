@@ -4,7 +4,7 @@ An enterprise-grade shipment planning and multimodal route optimization platform
 
 ---
 
-## ⚡ Quick Start (Run Locally in 2 Steps)
+## Quick Start (Run Locally in 2 Steps)
 
 ### Step 1: Install Python Dependencies
 ```bash
@@ -21,7 +21,7 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
 ---
 
-## 🎯 What This System Does
+## What This System Does
 
 When shipping cargo globally (e.g., *Hyderabad → Singapore*, *Chennai → London*, *Delhi → New York*, or *Mumbai → Rotterdam*), picking the cheapest route often leads to expensive delays, while expedited air freight can exceed your budget.
 
@@ -40,7 +40,7 @@ When shipping cargo globally (e.g., *Hyderabad → Singapore*, *Chennai → Lond
 
 ---
 
-## 📊 Benchmark Results (30 Global Corridors)
+## Benchmark Results (30 Global Corridors)
 
 The decision engine was benchmarked across **30 diverse intercontinental shipments** against 3 standard baseline heuristics (1,000 Monte Carlo runs per shipment):
 
@@ -60,7 +60,7 @@ python evaluate.py
 
 ---
 
-## 🧭 Project Structure
+## Project Structure
 
 ```text
 ├── backend/
@@ -94,7 +94,7 @@ python evaluate.py
 
 ---
 
-## 🔌 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
