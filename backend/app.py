@@ -17,9 +17,9 @@ from core.locations import search_locations, GLOBAL_LOCATIONS
 from core.pipeline import RouteOptimizationEngine
 
 app = FastAPI(
-    title="Shipment Analysis Routing Engine API",
+    title="RouteLens Routing Engine API",
     version="1.0.0",
-    description="Multi-objective route optimization with uncertainty modeling, Pareto filtering, and human explanations."
+    description="Intelligent shipment route analysis — Beyond shortest path."
 )
 
 app.add_middleware(
@@ -81,7 +81,7 @@ def generate_custom_routes(req: GenerateRoutesRequest):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "service": "Shipment Analysis Engine", "shipment_count": len(DATASET)}
+    return {"status": "ok", "service": "RouteLens Engine", "shipment_count": len(DATASET)}
 
 
 @app.get("/api/shipments")

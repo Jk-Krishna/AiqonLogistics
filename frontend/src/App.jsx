@@ -94,7 +94,7 @@ export default function App() {
   // Saved Shipments History (Local Persistence)
   const [savedShipments, setSavedShipments] = useState(() => {
     try {
-      const stored = localStorage.getItem('shipment_analysis_saved') || localStorage.getItem('aiqon_saved_shipments');
+      const stored = localStorage.getItem('routelens_saved_shipments') || localStorage.getItem('shipment_analysis_saved') || localStorage.getItem('aiqon_saved_shipments');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -116,7 +116,7 @@ export default function App() {
   // Save shipments to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('shipment_analysis_saved', JSON.stringify(savedShipments));
+      localStorage.setItem('routelens_saved_shipments', JSON.stringify(savedShipments));
     } catch (e) {
       console.warn('Failed to save shipments to storage', e);
     }
@@ -456,20 +456,24 @@ export default function App() {
           {/* Brand Identity with Subtle Glow */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold text-sm tracking-tight shadow-[0_0_15px_rgba(255,255,255,0.4)]">
-              SA
+              RL
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-white glow-subtle">
-                  Shipment Analysis
+                  RouteLens
                 </span>
                 <span className="text-white/30 text-xs">/</span>
-                <span className="text-xs font-semibold text-neutral-400">Route Optimizer</span>
+                <span className="text-xs font-semibold text-neutral-300">Intelligent shipment route analysis</span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)] animate-pulse"></span>
                 <span className="text-[10px] text-neutral-400 font-mono tracking-wider uppercase">
-                  ENGINE ONLINE • 2,500 MC SIMS
+                  Beyond shortest path
+                </span>
+                <span className="text-white/20 text-[10px]">•</span>
+                <span className="text-[10px] text-neutral-400 font-mono tracking-wider uppercase">
+                  2,500 MC SIMS
                 </span>
               </div>
             </div>
@@ -1814,8 +1818,8 @@ export default function App() {
       </main>
 
       {/* Understated Minimalist Dark Footer */}
-      <footer className="border-t border-white/10 bg-[#07070c]/90 px-6 py-4 text-center text-xs text-neutral-500 relative z-10 backdrop-blur-md">
-        Shipment Analysis • Multimodal Route Optimization & Planning Platform.
+      <footer className="border-t border-white/10 bg-[#07070c]/90 px-6 py-4 text-center text-xs text-neutral-400 relative z-10 backdrop-blur-md">
+        RouteLens • Intelligent shipment route analysis • Beyond shortest path
       </footer>
     </div>
   );

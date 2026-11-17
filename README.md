@@ -1,6 +1,7 @@
-# Shipment Analysis — Intelligent Multimodal Route Optimizer
+# RouteLens — Intelligent Shipment Route Analysis
 
-An enterprise-grade shipment planning and multimodal route optimization platform. It balances **freight cost, delivery speed, and disruption risk** under uncertainty using multi-attribute utility theory, Pareto non-dominance filtering, and Monte Carlo stochastic simulations.
+> **Beyond shortest path**  
+> An enterprise-grade multimodal route optimization platform balancing **freight cost, delivery speed, and disruption risk** under uncertainty using multi-attribute utility theory, Pareto non-dominance filtering, and Monte Carlo stochastic simulations.
 
 ---
 
@@ -46,7 +47,7 @@ The decision engine was benchmarked across **30 diverse intercontinental shipmen
 
 | Strategy | Base Freight | Delay Penalties Paid | Total Realized Cost | On-Time Reliability | Budget/Cargo Violations |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Shipment Analysis Engine** | **$4,432** | **$124** | **$4,557** | **96.0%** | **0** |
+| **RouteLens Engine** | **$4,432** | **$124** | **$4,557** | **96.0%** | **0** |
 | Baseline 1: Cheapest First | $2,840 | $2,583 | $5,423 | 27.6% | 1 |
 | Baseline 2: Fastest First | $4,532 | $18 | $4,550 | 99.6% | 1 |
 | Baseline 3: Lowest Risk | $5,138 | $29 | $5,167 | 99.0% | 4 |
