@@ -537,41 +537,82 @@ export default function App() {
             </div>
 
             {/* Key Metrics Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
-                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
-                  Evaluated Shipments
-                </span>
-                <span className="text-2xl font-bold text-neutral-900 font-mono">
-                  {savedShipments.length > 0 ? savedShipments.length : 30}
-                </span>
-                <span className="text-[11px] text-neutral-500 block mt-1">Corridors in active profile</span>
-              </div>
+            {(() => {
+              const count = savedShipments.length;
+              const hasData = count > 0;
 
-              <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
-                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
-                  Average On-Time Rate
-                </span>
-                <span className="text-2xl font-bold text-neutral-900 font-mono">95.9%</span>
-                <span className="text-[11px] text-neutral-500 block mt-1">Across optimized routes</span>
-              </div>
+              // Calculate average on-time rate from evaluated shipments
+              const avgOnTime = hasData
+                ? (
+                    (savedShipments.reduce((sum, item) => {
+                      const p = item.resultData?.recommended_route?.p_ontime;
+                      return sum + (typeof p === 'number' ? p : 0);
+                    }, 0) / count) * 100
+                  ).toFixed(1) + '%'
+                : '—';
 
-              <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
-                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
-                  Average Transit Duration
-                </span>
-                <span className="text-2xl font-bold text-neutral-900 font-mono">11.8 days</span>
-                <span className="text-[11px] text-neutral-500 block mt-1">Multi-modal scheduled time</span>
-              </div>
+              // Calculate average transit duration from evaluated shipments
+              const avgDuration = hasData
+                ? (
+                    savedShipments.reduce((sum, item) => {
+                      const d =
+                        item.resultData?.recommended_route?.aggregated?.total_time_days ??
+                        item.resultData?.recommended_route?.mean_simulated_time ??
+                        item.deadlineDays ??
+                        0;
+                      return sum + d;
+                    }, 0) / count
+                  ).toFixed(1) + ' days'
+                : '—';
 
-              <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
-                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
-                  Optimization Model
-                </span>
-                <span className="text-sm font-bold text-neutral-900 block mt-1.5">8-Stage Multi-Objective</span>
-                <span className="text-[11px] text-neutral-500 block">Monte Carlo & Pareto Pruning</span>
-              </div>
-            </div>
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Evaluated Shipments
+                    </span>
+                    <span className="text-2xl font-bold text-neutral-900 font-mono">
+                      {count}
+                    </span>
+                    <span className="text-[11px] text-neutral-500 block mt-1">
+                      {hasData ? `${count} active corridor${count > 1 ? 's' : ''}` : 'No shipments evaluated yet'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Average On-Time Rate
+                    </span>
+                    <span className="text-2xl font-bold text-neutral-900 font-mono">
+                      {avgOnTime}
+                    </span>
+                    <span className="text-[11px] text-neutral-500 block mt-1">
+                      {hasData ? 'Across evaluated routes' : 'No data available'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Average Transit Duration
+                    </span>
+                    <span className="text-2xl font-bold text-neutral-900 font-mono">
+                      {avgDuration}
+                    </span>
+                    <span className="text-[11px] text-neutral-500 block mt-1">
+                      {hasData ? 'Mean multimodal transit time' : 'No data available'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 p-5 rounded-xl shadow-sm">
+                    <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block mb-1">
+                      Optimization Model
+                    </span>
+                    <span className="text-sm font-bold text-neutral-900 block mt-1.5">8-Stage Multi-Objective</span>
+                    <span className="text-[11px] text-neutral-500 block">Monte Carlo & Pareto Pruning</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Recent Evaluations Table */}
             <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm space-y-4">
